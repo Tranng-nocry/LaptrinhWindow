@@ -31,12 +31,10 @@ public partial class Form1
             Height = S(44)
         };
         var productBox = new DropBox();
-        var qty = new InputBox { Value = "1", Placeholder = "Số lượng" };
         var add = new RoundedButton { Text = "Thêm vào đơn", Icon = "plus", Width = S(170), Height = S(44) };
         top.Controls.Add(customerBox);
         top.Controls.Add(newCustomer);
         top.Controls.Add(productBox);
-        top.Controls.Add(qty);
         top.Controls.Add(add);
         top.Resize += (_, _) =>
         {
@@ -45,23 +43,13 @@ public partial class Form1
             newCustomer.SetBounds(right - newCustomer.Width, S(20), newCustomer.Width, h);
             customerBox.SetBounds(S(24), S(20), Math.Max(S(200), newCustomer.Left - S(12) - S(24)), h);
             add.SetBounds(right - add.Width, S(80), add.Width, h);
-            qty.SetBounds(add.Left - S(12) - S(110), S(80), S(110), h);
-            productBox.SetBounds(S(24), S(80), Math.Max(S(200), qty.Left - S(12) - S(24)), h);
+            productBox.SetBounds(S(24), S(80), Math.Max(S(200), add.Left - S(12) - S(24)), h);
         };
-
         var gap = new Panel { Dock = DockStyle.Top, Height = S(16), BackColor = Theme.PageBg };
 
         // --- Thẻ đơn hàng ---
         var card = new Card { Dock = DockStyle.Fill };
-        var table = new ModernTable { Dock = DockStyle.Fill };
-        table.SetColumns(
-            new ColumnDef("Mã SP", 1f),
-            new ColumnDef("Tên sản phẩm", 2.6f, ColKind.Link),
-            new ColumnDef("Đơn giá", 1.4f),
-            new ColumnDef("Số lượng", 1f),
-            new ColumnDef("Thành tiền", 1.5f),
-            new ColumnDef("Thao tác", 1.1f, ColKind.Action));
-
+        var table = new SalesCartTable { Dock = DockStyle.Fill };
         var bar = new Panel { Dock = DockStyle.Bottom, Height = S(84), BackColor = Color.White };
         var total = new TitleLabel { BackColor = Color.White };
         var pay = new RoundedButton { Text = "Thanh toán", Fill = Theme.Green, Width = S(190), Height = S(46) };
@@ -131,11 +119,7 @@ public partial class Form1
         {
             if (productBox.SelectedIndex < 0) return;
             var product = available[productBox.SelectedIndex];
-            if (!int.TryParse(qty.Value.Trim(), out int count) || count <= 0)
-            {
-                MessageBox.Show("Số lượng phải là số nguyên dương.", "Số lượng không hợp lệ", MessageBoxButtons.OK, MessageBoxIcon.Warning);
-                return;
-            }
+            int count = 1;
             var line = cart.FirstOrDefault(l => l.Product.Code == product.Code);
             int newQty = (line?.Qty ?? 0) + count;
             if (newQty > product.Stock)
@@ -162,16 +146,15 @@ public partial class Form1
             else line.Qty = n;
             Redraw();
         }
+        table.IncreaseClicked += code => ChangeQty(code, +1);
 
-        table.ActionClicked += row =>
-            ShowRowMenu(
-                ("Tăng 1", () => ChangeQty(row[0], +1)),
-                ("Giảm 1", () => ChangeQty(row[0], -1)),
-                ("Xóa khỏi đơn", () =>
-                {
-                    cart.RemoveAll(l => l.Product.Code == row[0]);
-                    Redraw();
-                }));
+        table.DecreaseClicked += code => ChangeQty(code, -1);
+
+        table.RemoveClicked += code =>
+        {
+            cart.RemoveAll(l => l.Product.Code == code);
+            Redraw();
+        };
 
         // --- Lập hóa đơn ---
         void Checkout(bool paid)
@@ -201,6 +184,7 @@ public partial class Form1
             RefreshCustomers();
             Redraw();
 
+
             if (paid)
             {
                 if (MessageBox.Show($"Thanh toán thành công hóa đơn {invoice.Code}.\nTổng tiền: {FormatMoney(invoice.Total)}\n\nBạn có muốn in hóa đơn không?",
@@ -222,7 +206,6 @@ public partial class Form1
         page.Controls.Add(top);
         return page;
     }
-
     /// <summary>Hộp thoại thanh toán: chọn hình thức, nhập tiền khách đưa (tiền mặt) và xem tiền thừa.</summary>
     private bool ShowPaymentDialog(decimal total, out string method)
     {
