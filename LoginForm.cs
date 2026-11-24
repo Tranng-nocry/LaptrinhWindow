@@ -116,27 +116,27 @@ public class LoginForm : Form
 
         formHost.Controls.Add(new Label
         {
-            Text = "Tài khoản demo\nNhân viên: nam / 123456\nQuản lý: admin / admin123",
+            Text = "Tài khoản demo\nAdmin: admin / admin123\nThủ kho: thukho / kho123\nNhân viên bán hàng: nam / 123456",
             Font = Theme.Small,
             ForeColor = Theme.Navy,
             BackColor = Theme.BlueSoft,
             AutoSize = false,
             Location = new Point(0, S(410)),
-            Size = new Size(w, S(72)),
+            Size = new Size(w, S(90)),
             Padding = new Padding(S(14), 0, 0, 0),
             TextAlign = ContentAlignment.MiddleLeft
         });
 
-        // Hệ thống không có chức năng tự đăng ký: tài khoản do Quản lý cấp
+        // Hệ thống không có chức năng tự đăng ký: tài khoản do Admin cấp
         formHost.Controls.Add(new Label
         {
-            Text = "Chưa có tài khoản? Vui lòng liên hệ Quản lý để được cấp.",
+            Text = "Chưa có tài khoản? Vui lòng liên hệ Admin để được cấp.",
             Font = Theme.Small,
             ForeColor = Theme.Muted,
             BackColor = Color.White,
             AutoSize = false,
-            Location = new Point(0, S(494)),
-            Size = new Size(w, S(36)),
+            Location = new Point(0, S(508)),
+            Size = new Size(w, S(28)),
             TextAlign = ContentAlignment.TopLeft
         });
 

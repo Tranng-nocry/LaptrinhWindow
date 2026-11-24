@@ -1,10 +1,6 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.Drawing;
-
-using System;
-using System.Collections.Generic;
-using System.Drawing;
 using System.Drawing.Drawing2D;
 using System.Windows.Forms;
 using static BaiTapLon.Ui;
@@ -134,7 +130,7 @@ internal class SalesCartTable : Control
         {
             var rect = new Rectangle(
                 columns[c].X, 0,
-                columns[c].Width, HeaderHeight);
+                columns[c].Width - (c == 3 || c == 5 ? 0 : S(8)), HeaderHeight);
 
             TextRenderer.DrawText(
                 g,
@@ -143,8 +139,9 @@ internal class SalesCartTable : Control
                 rect,
                 Theme.Text,
                 TextFormatFlags.VerticalCenter |
-                TextFormatFlags.EndEllipsis |
-                TextFormatFlags.SingleLine);
+                TextFormatFlags.EndEllipsis | TextFormatFlags.SingleLine |
+                (c == 3 || c == 5 ? TextFormatFlags.HorizontalCenter :
+                 c == 2 || c == 4 ? TextFormatFlags.Right : TextFormatFlags.Left));
         }
 
         using var line = new Pen(Theme.RowLine);
@@ -175,7 +172,8 @@ internal class SalesCartTable : Control
     c == 1 ? Theme.Blue : Theme.Text,
     TextFormatFlags.VerticalCenter |
     TextFormatFlags.EndEllipsis |
-    TextFormatFlags.SingleLine);
+    TextFormatFlags.SingleLine |
+     (c == 2 || c == 4 ? TextFormatFlags.Right : TextFormatFlags.Left));
 
             }
 

@@ -6,4 +6,16 @@
     <ImplicitUsings>enable</ImplicitUsings>
     <Nullable>enable</Nullable>
   </PropertyGroup>
+
+  <ItemGroup>
+    <!-- Thư viện kết nối SQL Server (Visual Studio tự tải về khi Build lần đầu, cần có Internet) -->
+    <PackageReference Include="Microsoft.Data.SqlClient" Version="6.*" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <!-- Tên server SQL: sửa trong server.txt, file này được chép sang thư mục chạy chương trình -->
+    <None Update="server.txt">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </None>
+  </ItemGroup>
 </Project>

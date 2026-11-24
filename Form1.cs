@@ -6,7 +6,9 @@ namespace BaiTapLon;
 public partial class Form1 : Form
 {
     private static Account Me => Session.Current!;
-    private static bool IsManager => Session.IsManager;
+    private static bool IsAdmin => Session.IsAdmin;
+    private static bool IsWarehouse => Session.IsWarehouse;
+    private static bool IsStaff => Session.IsStaff;
     private static string FullName => Session.Current?.FullName ?? "Khách";
     private static string RoleName => Session.Current?.Role ?? "";
 
@@ -49,17 +51,26 @@ public partial class Form1 : Form
     // =====================================================================
     //  PHÂN QUYỀN MENU: mỗi vai trò chỉ thấy các trang của mình
     // =====================================================================
-    private static (string Text, string Icon)[] PagesForRole() => IsManager
-        ? new[]
-        {
-            ("Trang chủ", "home"),
-            ("Quản lý sản phẩm", "box"),
-            ("Quản lý hóa đơn", "invoice"),
-            ("Khách hàng", "user"),
-            ("Nhân viên", "team"),
-            ("Báo cáo thống kê", "chart")
-        }
-        : new[]
+    private static (string Text, string Icon)[] PagesForRole()
+    {
+        if (IsAdmin)
+            return new[]
+            {
+                ("Trang chủ", "home"),
+                ("Quản lý sản phẩm", "box"),
+                ("Quản lý hóa đơn", "invoice"),
+                ("Khách hàng", "user"),
+                ("Nhân viên", "team"),
+                ("Báo cáo thống kê", "chart")
+            };
+        if (IsWarehouse)
+            return new[]
+            {
+                ("Trang chủ", "home"),
+                ("Kho hàng", "box"),
+                ("Lịch sử kho", "invoice")
+            };
+        return new[]
         {
             ("Trang chủ", "home"),
             ("Sản phẩm", "box"),
@@ -68,6 +79,7 @@ public partial class Form1 : Form
             ("Khách hàng", "user"),
             ("Báo cáo của tôi", "chart")
         };
+    }
 
     // =====================================================================
     //  KHUNG CHÍNH: sidebar + header + vùng nội dung
@@ -164,6 +176,8 @@ public partial class Form1 : Form
         {
             "Trang chủ" => BuildHomePage(),
             "Quản lý sản phẩm" or "Sản phẩm" => BuildProductsPage(),
+            "Kho hàng" => BuildWarehousePage(),
+            "Lịch sử kho" => BuildStockHistoryPage(),
             "Bán hàng" => BuildSalesPage(),
             "Quản lý hóa đơn" or "Hóa đơn của tôi" => BuildInvoicesPage(),
             "Khách hàng" => BuildCustomersPage(),
@@ -180,10 +194,12 @@ public partial class Form1 : Form
     {
         "Quản lý sản phẩm" => "Quản lý sản phẩm, giá bán, nhập kho và điều chỉnh tồn kho",
         "Sản phẩm" => "Tra cứu sản phẩm và số lượng tồn kho để tư vấn, bán hàng",
+        "Kho hàng" => "Theo dõi số lượng tồn, nhập kho và điều chỉnh sau kiểm kê",
+        "Lịch sử kho" => "Toàn bộ biến động nhập, bán, hoàn kho và điều chỉnh",
         "Bán hàng" => "Chọn khách hàng, thêm sản phẩm, tính tiền và thanh toán",
         "Quản lý hóa đơn" => "Theo dõi toàn bộ hóa đơn, xem chi tiết và hủy hóa đơn khi cần",
         "Hóa đơn của tôi" => "Lịch sử các hóa đơn do bạn lập",
-        "Khách hàng" => IsManager ? "Quản lý thông tin khách hàng" : "Thêm, sửa và tìm kiếm khách hàng",
+        "Khách hàng" => IsAdmin ? "Quản lý thông tin khách hàng" : "Thêm, sửa và tìm kiếm khách hàng",
         "Nhân viên" => "Cấp tài khoản và quản lý nhân viên",
         "Báo cáo thống kê" => "Doanh thu, sản phẩm bán chạy, tồn kho và hoạt động nhân viên",
         "Báo cáo của tôi" => "Doanh thu và hóa đơn do bạn lập",
@@ -259,8 +275,9 @@ public partial class Form1 : Form
 
     // =====================================================================
     //  SẢN PHẨM
-    //  Quản lý: xem/tìm/lọc, thêm, sửa, cập nhật giá, ngừng kinh doanh, nhập kho, điều chỉnh tồn.
-    //  Nhân viên: chỉ xem, tìm kiếm, lọc theo danh mục (không có nút thao tác).
+    //  Admin: xem/tìm/lọc, thêm, sửa, cập nhật giá nhập/giá bán, ngừng kinh doanh, nhập kho, điều chỉnh tồn.
+    //  Nhân viên bán hàng: chỉ xem, tìm kiếm, lọc theo danh mục (không thấy giá nhập, không có nút thao tác).
+    //  Thủ kho dùng trang "Kho hàng" riêng (Form1_Warehouse.cs).
     // =====================================================================
     private Control BuildProductsPage()
     {
@@ -272,19 +289,20 @@ public partial class Form1 : Form
         {
             new("Mã SP", 0.9f),
             new("Tên sản phẩm", 2.2f, ColKind.Link),
-            new("Danh mục", 1.6f, ColKind.Tag),
-            new("Giá bán", 1.3f),
-            new("Tồn kho", 0.9f),
-            new("Trạng thái", 1.6f, ColKind.Status)
+            new("Danh mục", 1.6f, ColKind.Tag)
         };
-        if (IsManager) columns.Add(new ColumnDef("Thao tác", 1.2f, ColKind.Action));
+        if (IsAdmin) columns.Add(new ColumnDef("Giá nhập", 1.2f));      // giá vốn: chỉ Admin được xem
+        columns.Add(new ColumnDef("Giá bán", 1.3f));
+        columns.Add(new ColumnDef("Tồn kho", 0.9f));
+        columns.Add(new ColumnDef("Trạng thái", 1.6f, ColKind.Status));
+        if (IsAdmin) columns.Add(new ColumnDef("Thao tác", 1.2f, ColKind.Action));
 
         var page = new DataListPage(
             "Tìm kiếm theo tên sản phẩm, mã hàng, danh mục...",
             "sản phẩm",
             new[] { categories, statuses },
             columns.ToArray(),
-            IsManager ? "Thêm sản phẩm" : null);
+            IsAdmin ? "Thêm sản phẩm" : null);
 
         page.Query = (term, f) =>
         {
@@ -299,27 +317,33 @@ public partial class Form1 : Form
                     (IsAll(st) || p.Status == st))
                 .Select(p =>
                 {
-                    var cells = new List<string> { p.Code, p.Name, p.Category, FormatMoney(p.Price), p.Stock.ToString(), p.Status };
-                    if (IsManager) cells.Add("Thao tác");
+                    var cells = new List<string> { p.Code, p.Name, p.Category };
+                    if (IsAdmin) cells.Add(FormatMoney(p.CostPrice));
+                    cells.Add(FormatMoney(p.Price));
+                    cells.Add(p.Stock.ToString());
+                    cells.Add(p.Status);
+                    if (IsAdmin) cells.Add("Thao tác");
                     return cells.ToArray();
                 })
                 .ToList();
         };
 
-        if (IsManager)
+        if (IsAdmin)
         {
             page.ExtraButton!.Click += (_, _) => ShowProductDialog(null, () => page.Reload());
             page.RowAction += row =>
             {
                 var p = Store.Products.FirstOrDefault(x => x.Code == row[0]);
                 if (p == null) return;
-                ShowRowMenu(
+                ShowRowMenu("Quản lý sản phẩm", $"{p.Code} · {p.Name}",
                     ("Sửa thông tin / cập nhật giá", () => ShowProductDialog(p, () => page.Reload(false))),
                     ("Nhập kho", () => ShowStockInDialog(p, () => page.Reload(false))),
                     ("Điều chỉnh tồn kho (kiểm kê)", () => ShowAdjustDialog(p, () => page.Reload(false))),
                     (p.Discontinued ? "Kinh doanh lại" : "Ngừng kinh doanh", () =>
                     {
-                        p.Discontinued = !p.Discontinued;
+                        string? err = Store.SetProductDiscontinued(Me, p, !p.Discontinued);
+                        if (err != null)
+                            MessageBox.Show(err, "Không thể thực hiện", MessageBoxButtons.OK, MessageBoxIcon.Warning);
                         page.Reload(false);
                     }));
             };
@@ -339,7 +363,10 @@ public partial class Form1 : Form
         var name = d.AddInput("Tên sản phẩm", existing?.Name ?? "", "Nhập tên sản phẩm");
         var category = d.AddDrop("Danh mục", cats, existing?.Category);
         var newCategory = d.AddInput("Danh mục mới (nếu chưa có trong danh sách)", "", "Để trống nếu dùng danh mục ở trên");
-        var price = d.AddInput("Giá bán (VNĐ)", existing == null ? "" : ((long)existing.Price).ToString(), "VD: 850000");
+        var cost = d.AddInput("Giá nhập (VNĐ)", existing == null ? "" : ((long)existing.CostPrice).ToString(), "VD: 600000", half: true);
+        var price = d.AddInput("Giá bán (VNĐ)", existing == null ? "" : ((long)existing.Price).ToString(), "VD: 850000", half: true);
+        var minStock = d.AddInput("Mức tồn tối thiểu (dưới mức này sẽ cảnh báo cần nhập)",
+            (existing?.MinStock ?? Product.DefaultMinStock).ToString(), "VD: 5");
         d.AddNote(existing == null
             ? "Sản phẩm mới có tồn kho bằng 0. Dùng \"Nhập kho\" để thêm số lượng."
             : $"Tồn kho hiện tại: {existing.Stock}. Muốn thay đổi tồn kho hãy dùng \"Nhập kho\" hoặc \"Điều chỉnh tồn kho\".");
@@ -356,19 +383,16 @@ public partial class Form1 : Form
             string rawPrice = new string(price.Value.Where(char.IsDigit).ToArray());
             if (!decimal.TryParse(rawPrice, out decimal pr) || pr <= 0) return "Giá bán phải là số lớn hơn 0.";
 
-            if (existing == null)
-            {
-                if (Store.Products.Any(p => p.Code.Equals(c, StringComparison.OrdinalIgnoreCase)))
-                    return "Mã sản phẩm đã tồn tại.";
-                Store.Products.Add(new Product { Code = c, Name = n, Category = cat, Price = pr, Stock = 0 });
-            }
-            else
-            {
-                existing.Name = n;
-                existing.Category = cat;
-                existing.Price = pr;    // hóa đơn cũ giữ nguyên giá lúc bán (đã lưu trong chi tiết hóa đơn)
-            }
-            return null;
+            string rawCost = new string(cost.Value.Where(char.IsDigit).ToArray());
+            if (!decimal.TryParse(rawCost, out decimal co) || co <= 0) return "Giá nhập phải là số lớn hơn 0.";
+
+            if (!int.TryParse(minStock.Value.Trim(), out int min) || min < 0)
+                return "Mức tồn tối thiểu phải là số nguyên không âm.";
+
+            if (existing == null && Store.Products.Any(p => p.Code.Equals(c, StringComparison.OrdinalIgnoreCase)))
+                return "Mã sản phẩm đã tồn tại.";
+
+            return Store.SaveProduct(Me, existing, c, n, cat, pr, co, min);   // ghi vào SQL Server
         });
         if (saved) onSaved();
     }
@@ -419,20 +443,76 @@ public partial class Form1 : Form
     /// <summary>Hiện menu thao tác ngay tại vị trí con trỏ chuột (dùng cho nút "Thao tác" trong bảng).</summary>
     private void ShowRowMenu(params (string Text, Action Do)[] items)
     {
-        var menu = new ContextMenuStrip { Font = Theme.Body, ShowImageMargin = false };
-        foreach (var (text, action) in items)
-        {
-            var mi = new ToolStripMenuItem(text) { Padding = new Padding(S(4), S(6), S(4), S(6)) };
-            mi.Click += (_, _) => action();
-            menu.Items.Add(mi);
-        }
-        menu.Closed += (_, _) => BeginInvoke(new Action(() => menu.Dispose()));
-        menu.Show(Cursor.Position);
+        ShowRowMenu("Thao tác", "Chọn chức năng cần thực hiện", items);
     }
 
-    /// <summary>Hóa đơn nằm trong phạm vi được xem: Quản lý xem tất cả, Nhân viên chỉ xem hóa đơn của mình.</summary>
+    private void ShowRowMenu(string title, string subtitle, params (string Text, Action Do)[] items)
+    {
+        var popup = new Form
+        {
+            FormBorderStyle = FormBorderStyle.None, ShowInTaskbar = false,
+            StartPosition = FormStartPosition.Manual, BackColor = Color.White,
+            Font = Theme.Body, KeyPreview = true
+        };
+        int w = S(320), h = S(76) + items.Length * S(48) + S(12);
+        popup.ClientSize = new Size(w, h);
+        using (var shape = Theme.RoundRect(new Rectangle(0, 0, w, h), S(12)))
+            popup.Region = new Region(shape);
+        popup.Paint += (_, e) =>
+        {
+            e.Graphics.SmoothingMode = System.Drawing.Drawing2D.SmoothingMode.AntiAlias;
+            using var path = Theme.RoundRect(new Rectangle(0, 0, w - 1, h - 1), S(12));
+            using var pen = new Pen(Theme.Line);
+            e.Graphics.DrawPath(pen, path);
+            e.Graphics.DrawLine(pen, S(14), S(69), w - S(14), S(69));
+        };
+        var heading = new Label { Text = title, Font = Theme.Heading, ForeColor = Theme.Text,
+            AutoEllipsis = true, Bounds = new Rectangle(S(16), S(10), w - S(32), S(28)) };
+        var sub = new Label { Text = subtitle, Font = Theme.Small, ForeColor = Theme.Muted,
+            AutoEllipsis = true, Bounds = new Rectangle(S(16), S(40), w - S(32), S(24)) };
+        popup.Controls.Add(heading);
+        popup.Controls.Add(sub);
+        int y = S(76);
+        foreach (var (text, action) in items)
+        {
+            bool danger = text.StartsWith("Hủy") || text.StartsWith("Khóa") || text.StartsWith("Ngừng") || text.StartsWith("Xóa");
+            Color accent = danger ? Theme.Red : text.StartsWith("Nhập") || text.StartsWith("Thanh toán") || text.StartsWith("Mở khóa") || text.StartsWith("Kinh doanh lại") ? Theme.Green : text.StartsWith("Đặt lại") ? Color.FromArgb(217,119,6) : Theme.Blue;
+            string icon = text.StartsWith("Nhập") ? "box" : text.Contains("tồn kho") ? "chart" : text.Contains("mật khẩu") || text.Contains("khóa") || text.Contains("Khóa") ? "lock" : text.Contains("hóa đơn") || text.StartsWith("Xem") ? "invoice" : danger ? "logout" : text.StartsWith("Thanh toán") ? "cart" : "user";
+            var button = new Button
+            {
+                Text = text, Font = Theme.Body, ForeColor = danger ? Theme.Red : Theme.Text,
+                BackColor = Color.White, FlatStyle = FlatStyle.Flat, Cursor = Cursors.Hand,
+                TextAlign = ContentAlignment.MiddleLeft, Padding = new Padding(S(42), 0, S(8), 0),
+                Bounds = new Rectangle(S(8), y, w - S(16), S(44)), UseVisualStyleBackColor = false
+            };
+            button.FlatAppearance.BorderSize = 0;
+            button.FlatAppearance.MouseOverBackColor = Color.FromArgb(241, 245, 249);
+            button.FlatAppearance.MouseDownBackColor = Color.FromArgb(226, 232, 240);
+            using (var shape = Theme.RoundRect(new Rectangle(0, 0, button.Width, button.Height), S(8)))
+                button.Region = new Region(shape);
+            button.Paint += (_, e) => Icons.Draw(e.Graphics, icon, new Rectangle(S(13), S(11), S(22), S(22)), accent);
+            button.Click += (_, _) =>
+            {
+                popup.Close();
+                BeginInvoke(new Action(action));
+            };
+            popup.Controls.Add(button);
+            y += S(48);
+        }
+        popup.Deactivate += (_, _) => popup.Close();
+        popup.KeyDown += (_, e) => { if (e.KeyCode == Keys.Escape) popup.Close(); };
+        var pos = Cursor.Position;
+        var area = Screen.FromPoint(pos).WorkingArea;
+        int x = Math.Max(area.Left, Math.Min(pos.X - w + S(20), area.Right - w));
+        int py = pos.Y + S(10);
+        if (py + h > area.Bottom) py = pos.Y - h - S(10);
+        popup.Location = new Point(x, Math.Max(area.Top, Math.Min(py, area.Bottom - h)));
+        popup.Show(this);
+    }
+
+    /// <summary>Hóa đơn nằm trong phạm vi được xem: Admin xem tất cả, Nhân viên bán hàng chỉ xem hóa đơn của mình.</summary>
     private static IEnumerable<Invoice> ScopeInvoices() =>
-        IsManager ? Store.Invoices : Store.Invoices.Where(i => i.StaffUser == Me.UserName);
+        IsAdmin ? Store.Invoices : Store.Invoices.Where(i => i.StaffUser == Me.UserName);
 
     private sealed class CartLine(Product product, int qty)
     {

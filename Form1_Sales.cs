@@ -4,12 +4,12 @@ using static BaiTapLon.Ui;
 namespace BaiTapLon;
 
 // TV3: bán hàng, thanh toán, hóa đơn.
-//  - Nhân viên: tạo đơn, chọn khách hàng, thêm/sửa số lượng, thanh toán hoặc lưu chờ thanh toán, in hóa đơn, xem hóa đơn CỦA MÌNH.
-//  - Quản lý: xem toàn bộ hóa đơn + chi tiết, in, hủy hóa đơn (bắt buộc lý do). Không lập hóa đơn, không thu tiền.
+//  - Nhân viên bán hàng: tạo đơn, chọn khách hàng, thêm/sửa số lượng, thanh toán hoặc lưu chờ thanh toán, in hóa đơn, xem hóa đơn CỦA MÌNH.
+//  - Admin: xem toàn bộ hóa đơn + chi tiết, in, hủy hóa đơn (bắt buộc lý do). Không lập hóa đơn, không thu tiền.
 public partial class Form1
 {
     // =====================================================================
-    //  BÁN HÀNG (chỉ Nhân viên)
+    //  BÁN HÀNG (chỉ Nhân viên bán hàng)
     // =====================================================================
     private Control BuildSalesPage()
     {
@@ -256,20 +256,20 @@ public partial class Form1
             new("Khách hàng", 1.8f, ColKind.Link),
             new("Ngày lập", 1.5f)
         };
-        if (IsManager) columns.Add(new ColumnDef("Nhân viên lập", 1.5f));
+        if (IsAdmin) columns.Add(new ColumnDef("Nhân viên lập", 1.5f));
         columns.Add(new ColumnDef("Tổng tiền", 1.3f));
         columns.Add(new ColumnDef("Trạng thái", 1.6f, ColKind.Status));
         columns.Add(new ColumnDef("Thao tác", 1.2f, ColKind.Action));
 
         var page = new DataListPage(
-            IsManager ? "Tìm kiếm theo mã hóa đơn, khách hàng hoặc nhân viên..." : "Tìm kiếm theo mã hóa đơn hoặc tên khách hàng...",
+            IsAdmin ? "Tìm kiếm theo mã hóa đơn, khách hàng hoặc nhân viên..." : "Tìm kiếm theo mã hóa đơn hoặc tên khách hàng...",
             "hóa đơn",
             new[] { statuses },
             columns.ToArray());
 
         // Nút "Thao tác" mở menu khi còn việc để làm; nếu chỉ xem được thì hiện thẳng "Chi tiết"
         static string ActionLabel(Invoice i) =>
-            (IsManager ? i.Status != Invoice.Cancelled : i.Status == Invoice.Pending) ? "Thao tác" : "Chi tiết";
+            (IsAdmin ? i.Status != Invoice.Cancelled : i.Status == Invoice.Pending) ? "Thao tác" : "Chi tiết";
 
         page.Query = (term, f) =>
         {
@@ -279,13 +279,13 @@ public partial class Form1
                     (term.Length == 0 ||
                      i.Code.Contains(term, StringComparison.OrdinalIgnoreCase) ||
                      i.Customer.Contains(term, StringComparison.OrdinalIgnoreCase) ||
-                     (IsManager && i.StaffName.Contains(term, StringComparison.OrdinalIgnoreCase))) &&
+                     (IsAdmin && i.StaffName.Contains(term, StringComparison.OrdinalIgnoreCase))) &&
                     (IsAll(st) || i.Status == st))
                 .OrderByDescending(i => i.Date)
                 .Select(i =>
                 {
                     var cells = new List<string> { i.Code, i.Customer, FormatDate(i.Date) };
-                    if (IsManager) cells.Add(i.StaffName);
+                    if (IsAdmin) cells.Add(i.StaffName);
                     cells.Add(FormatMoney(i.Total));
                     cells.Add(i.Status);
                     cells.Add(ActionLabel(i));
@@ -300,13 +300,13 @@ public partial class Form1
             if (inv == null) return;
 
             var items = new List<(string Text, Action Do)> { ("Xem chi tiết", () => ShowInvoiceDetail(inv)) };
-            if (!IsManager && inv.Status == Invoice.Pending && inv.StaffUser == Me.UserName)
+            if (IsStaff && inv.Status == Invoice.Pending && inv.StaffUser == Me.UserName)
                 items.Add(("Thanh toán", () => PayPendingInvoice(inv, () => page.Reload(false))));
-            if (IsManager && inv.Status != Invoice.Cancelled)
+            if (IsAdmin && inv.Status != Invoice.Cancelled)
                 items.Add(("Hủy hóa đơn", () => ShowCancelInvoiceDialog(inv, () => page.Reload(false))));
 
             if (items.Count == 1) items[0].Do();
-            else ShowRowMenu(items.ToArray());
+            else ShowRowMenu("Quản lý hóa đơn", $"{inv.Code} · {inv.Customer}", items.ToArray());
         };
 
         page.Reload();

@@ -4,8 +4,8 @@ using static BaiTapLon.Ui;
 namespace BaiTapLon;
 
 // TV4: báo cáo thống kê.
-//  - Quản lý: doanh thu toàn cửa hàng, sản phẩm bán chạy, tồn kho (nhập/xuất/điều chỉnh), hoạt động từng nhân viên.
-//  - Nhân viên: chỉ doanh thu + sản phẩm bán chạy trong phạm vi hóa đơn của mình, và xem tồn kho hiện tại.
+//  - Admin: doanh thu toàn cửa hàng, sản phẩm bán chạy, tồn kho (nhập/xuất/điều chỉnh), hoạt động từng nhân viên.
+//  - Nhân viên bán hàng: chỉ doanh thu + sản phẩm bán chạy trong phạm vi hóa đơn của mình, và xem tồn kho hiện tại.
 //  Doanh thu chỉ tính hóa đơn "Đã thanh toán" (không cộng hóa đơn chờ thanh toán hoặc đã hủy).
 public partial class Form1
 {
@@ -14,10 +14,10 @@ public partial class Form1
         var page = new Panel { Dock = DockStyle.Fill, BackColor = Theme.PageBg };
 
         // ----- Thanh lọc: loại báo cáo + kiểu thời gian + giá trị thời gian + nút xuất -----
-        var kinds = IsManager ? new[] { "rev", "top", "stock", "staff" } : new[] { "rev", "top", "stock" };
+        var kinds = IsAdmin ? new[] { "rev", "top", "stock", "staff" } : new[] { "rev", "top", "stock" };
         var toolbar = new Card { Dock = DockStyle.Top, Height = S(88) };
         var typeBox = new DropBox();
-        typeBox.SetItems(IsManager
+        typeBox.SetItems(IsAdmin
             ? new[] { "Doanh thu", "Sản phẩm bán chạy", "Hàng tồn kho", "Hoạt động nhân viên" }
             : new[] { "Doanh thu của tôi", "Sản phẩm tôi đã bán", "Tồn kho hiện tại" });
         var modeBox = new DropBox();
@@ -115,7 +115,7 @@ public partial class Form1
 
             // --- Thẻ thống kê ---
             var stats = BuildStatRow(
-                (IsManager ? "Doanh thu" : "Doanh thu của tôi", FormatMoney(revenue), rangeLabel, Theme.Blue, "chart"),
+                (IsAdmin ? "Doanh thu" : "Doanh thu của tôi", FormatMoney(revenue), rangeLabel, Theme.Blue, "chart"),
                 ("Hóa đơn đã thanh toán", paid.Count.ToString(),
                     "Trung bình " + FormatMoney(paid.Count == 0 ? 0m : revenue / paid.Count) + " / đơn", Theme.Green, "invoice"),
                 ("Chờ thanh toán", inRange.Count(i => i.Status == Invoice.Pending).ToString(),
@@ -130,14 +130,14 @@ public partial class Form1
             ColumnDef[] cols;
             List<string[]> rows;
             ChartCard? chart = null;
-            string who = IsManager ? "toàn cửa hàng" : "của bạn";
+            string who = IsAdmin ? "toàn cửa hàng" : "của bạn";
 
             switch (kind)
             {
                 case "rev":
                     exportName = "bao_cao_doanh_thu";
                     heading = "Hóa đơn - " + rangeLabel;
-                    cols = IsManager
+                    cols = IsAdmin
                         ? new[]
                         {
                             new ColumnDef("Mã hóa đơn", 1.1f), new ColumnDef("Khách hàng", 1.7f, ColKind.Link),
@@ -151,7 +151,7 @@ public partial class Form1
                             new ColumnDef("Trạng thái", 1.5f, ColKind.Status)
                         };
                     rows = inRange.OrderByDescending(i => i.Date)
-                        .Select(i => IsManager
+                        .Select(i => IsAdmin
                             ? new[] { i.Code, i.Customer, FormatDate(i.Date), i.StaffName, FormatMoney(i.Total), i.Status }
                             : new[] { i.Code, i.Customer, FormatDate(i.Date), FormatMoney(i.Total), i.Status })
                         .ToList();
@@ -169,7 +169,7 @@ public partial class Form1
 
                 case "top":
                     exportName = "san_pham_ban_chay";
-                    heading = (IsManager ? "Sản phẩm bán chạy - " : "Sản phẩm tôi đã bán - ") + rangeLabel;
+                    heading = (IsAdmin ? "Sản phẩm bán chạy - " : "Sản phẩm tôi đã bán - ") + rangeLabel;
                     cols = new[]
                     {
                         new ColumnDef("Hạng", 0.6f), new ColumnDef("Mã SP", 0.9f),
@@ -203,7 +203,7 @@ public partial class Form1
 
                 case "stock":
                     exportName = "bao_cao_ton_kho";
-                    if (IsManager)
+                    if (IsAdmin)
                     {
                         // Tồn cuối = Tồn đầu + Nhập - Xuất + Điều chỉnh (tính trong khoảng thời gian đã chọn)
                         heading = "Báo cáo tồn kho - " + rangeLabel;
@@ -245,7 +245,7 @@ public partial class Form1
                     }
                     break;
 
-                default:    // "staff" - chỉ Quản lý
+                default:    // "staff" - chỉ Admin
                     exportName = "hoat_dong_nhan_vien";
                     heading = "Hoạt động nhân viên - " + rangeLabel;
                     cols = new[]
@@ -255,7 +255,7 @@ public partial class Form1
                         new ColumnDef("Chờ thanh toán", 1.3f), new ColumnDef("Đã hủy", 0.9f)
                     };
                     var perStaff = Store.Accounts
-                        .Where(a => !a.IsManager || inRange.Any(i => i.StaffUser == a.UserName))
+                        .Where(a => a.IsStaff || inRange.Any(i => i.StaffUser == a.UserName))
                         .Select(a =>
                         {
                             var mine = inRange.Where(i => i.StaffUser == a.UserName).ToList();
